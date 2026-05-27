@@ -1,0 +1,19 @@
+################################################################################
+# this is an example file - to use it, copy it to a Koha repo hosted           #
+# within a Forgejo instance, modify the 'on' hash table to match your          #
+# build cadance, and watch the magic flow                                      #
+################################################################################
+---
+name: Fully test, build, and publish Koha code
+
+on:
+  workflow_call
+
+jobs:
+  spawn-all-tests:
+    name: 'Spawn full test suite'
+    uses: openfifth/Koha-forgejo-actions/.forgejo/workflows/callables/run-all-tests.yml@trunk
+
+  spawn-light-tests:
+    name: 'Spawn light test suite'
+    uses: openfifth/Koha-forgejo-actions/.forgejo/workflows/callables/run-light-tests.yml@trunk

@@ -1,0 +1,55 @@
+---
+name: Run full test suite on Koha code
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        default: 'amd64'
+        type: string
+      project:
+        default: 'koha-testing-workflow'
+        type: string
+
+jobs:
+  run-all-tests:
+    name: ${{ inputs.project }} - Run full test suite
+    runs-on:
+      - bare-metal
+      - ${{ inputs.arch }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - run: |
+             set -x
+             export JENKINS_HELPER_SCRIPTS="$(mktemp -d -p /tmp jenkins-helper-script-XXXXXX)"
+             echo JENKINS_HELPER_SCRIPTS="$JENKINS_HELPER_SCRIPTS" >> $FORGEJO_ENV
+      - run: |
+             set -x
+             export SYNC_REPO="$FORGEJO_WORKSPACE"
+             echo SYNC_REPO="$SYNC_REPO" >> $FORGEJO_ENV
+      - run: |
+             set -x
+             git clone --branch forgejo_actions --single-branch --depth 1 "https://forgejo.openfifth.co.uk/openfifth/jenkins-helper-scripts.git" "$JENKINS_HELPER_SCRIPTS"
+      - run: |
+             set -x
+             perl "$JENKINS_HELPER_SCRIPTS/koha_tests_runner.pl" \
+                 --initial-docker-cleanup \
+                 --run-all-tests \
+                 --warmup-timeout 550 \
+                 --force-cleanup \
+                 --verbose
+        env:
+          KOHA_IMAGE: main
+          DB_IMAGE: mariadb:10.11
+        timeout-minutes: 360
+      - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-full-test-suite-results
+          path: |
+                ${{ env.FORGEJO_WORKSPACE }}/junit_main.xml
+                ${{ env.FORGEJO_WORKSPACE }}/junit-cypress-*.xml
+                ${{ env.FORGEJO_WORKSPACE }}/cover_db/*.xml
+      - if: always()
+        run: |
+             set -x
+             [ -d "$JENKINS_HELPER_SCRIPTS" ] && rm -rfv "$JENKINS_HELPER_SCRIPTS"
