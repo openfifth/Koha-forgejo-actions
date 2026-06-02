@@ -22,11 +22,11 @@ jobs:
       - run: |
              set -x
              export JENKINS_HELPER_SCRIPTS="$(mktemp -d -p /tmp jenkins-helper-script-XXXXXX)"
-             echo JENKINS_HELPER_SCRIPTS="$JENKINS_HELPER_SCRIPTS" >> $FORGEJO_ENV
+             echo JENKINS_HELPER_SCRIPTS="$JENKINS_HELPER_SCRIPTS" >> ${{ env.FORGEJO_ENV }}
       - run: |
              set -x
-             export SYNC_REPO="$FORGEJO_WORKSPACE"
-             echo SYNC_REPO="$SYNC_REPO" >> $FORGEJO_ENV
+             export SYNC_REPO="${{ env.FORGEJO_WORKSPACE }}"
+             echo SYNC_REPO="$SYNC_REPO" >> ${{ env.FORGEJO_ENV }}
       - run: |
              set -x
              git clone --branch forgejo_actions --single-branch --depth 1 "https://forgejo.openfifth.co.uk/openfifth/jenkins-helper-scripts.git" "$JENKINS_HELPER_SCRIPTS"
