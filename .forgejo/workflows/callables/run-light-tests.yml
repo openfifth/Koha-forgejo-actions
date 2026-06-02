@@ -44,12 +44,50 @@ jobs:
         timeout-minutes: 360
       - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
         with:
-          name: ${{ inputs.project }}-full-test-suite-results
+          name: ${{ inputs.project }}-light-test-suite-taps
           path: |
                 ${{ env.FORGEJO_WORKSPACE }}/junit_main.xml
                 ${{ env.FORGEJO_WORKSPACE }}/junit-cypress-*.xml
                 ${{ env.FORGEJO_WORKSPACE }}/cover_db/*.xml
-      - if: always()
-        run: |
+      - run: |
              set -x
              [ -d "$JENKINS_HELPER_SCRIPTS" ] && rm -rfv "$JENKINS_HELPER_SCRIPTS"
+        if: success() || failure()
+
+  analyse-light-tests:
+    name: ${{ inputs.project }} - Analyse results of light test suite run
+    runs-on:
+      - bare-metal
+      - ${{ inputs.arch }}
+    needs:
+      - run-light-tests
+    if: ${{ !cancelled() && !failure() }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/forgejo/download-artifact@v4
+        with:
+          name: ${{ inputs.project }}-light-test-suite-taps
+      - uses: https://github.com/test-summary/action@v2
+        with:
+          paths: ${{ env.FORGEJO_WORKSPACE }}/*.xml
+          output: ${{ env.FORGEJO_WORKSPACE }}/test-summary.md
+          show: fail,skip
+      - run: |
+             ISSUE_TITLE="[forgejo-actions] Run ${{ env.FORGEJO_RUN_NUMBER }} on ${{ env.FORGEJO_REF }} – Test summary"
+             ISSUE_BODY="$(cat '${{ env.FORGEJO_WORKSPACE }}/test-summary.md' | perl -pe 's/\"/\\"/g' | perl -pe 's/\n/\\n/g')"
+
+             curl -X POST \
+                 "${{ env.FORGEJO_API_URL }}/repos/${{ env.FORGEJO_REPOSITORY }}/issues" \
+                 -H "accept: application/json" \
+                 -H "Authorization: Token ${{ env.FORGEJO_TOKEN }}" \
+                 -H "Content-Type: application/json" \
+                 -d "{\"title\":\"$ISSUE_TITLE\",\"closed\":true,\"body\":\"$ISSUE_BODY\"}" >/dev/null
+
+             echo -ne "[INFO]\tAn issue has been created with a summary of this test suite's status\n"
+             echo -ne "[INFO]\tPlease go to ${{ env.FORGEJO_SERVER_URL }}/${{ env.FORGEJO_REPOSITORY }}/issues\n"
+             echo -ne "[INFO]\tThe issues will be titled with this checkout ref and run number, in closed issues\n"
+      - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-light-test-suite-summary
+          path: |
+                ${{ env.FORGEJO_WORKSPACE }}/test-summary.md
