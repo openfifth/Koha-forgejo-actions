@@ -1,0 +1,96 @@
+---
+name: Run build against Koha code
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        default: 'amd64'
+        type: string
+      project:
+        default: 'koha-build-workflow'
+        type: string
+
+jobs:
+  create-build:
+    name: ${{ inputs.project }} - Run build suite
+    runs-on:
+      - bare-metal
+      - ${{ inputs.arch }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - run: |
+             set -x
+             export KDD_HELPER_SCRIPTS="$(mktemp -d -p /tmp kdd-helper-script-XXXXXX)"
+             echo KDD_HELPER_SCRIPTS="$KDD_HELPER_SCRIPTS" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+             export DEBS_OUT="$(mktemp -d -p /tmp debs-out-XXXXXX)"
+             echo DEBS_OUT="$DEBS_OUT" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+             export KOHA_AUTO_VERSION="$(perl -I. -MKoha -le 'print $Koha::VERSION' | cut -b 1-5)"
+
+             # unsupported versions
+             [[ "$KOHA_AUTO_VERSION" == *".06"* ]] && KOHA_AUTO_VERSION="unstable"
+             [[ "$KOHA_AUTO_VERSION" == *".12"* ]] && KOHA_AUTO_VERSION="unstable"
+
+             [ -z "$KOHA_VERSION" ] && KOHA_VERSION="$KOHA_AUTO_VERSION"
+             echo KOHA_VERSION="$KOHA_VERSION" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+             [ -z "$KDD_BRANCH" ] && KDD_BRANCH="${{ env.KOHA_VERSION }}"
+             export KDD_BRANCH="$KDD_BRANCH"
+             echo KDD_BRANCH="$KDD_BRANCH" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+             [ -z "$KDD_IMAGE" ] && KDD_IMAGE="${{ env.KOHA_VERSION }}"
+             export KDD_IMAGE="$KDD_IMAGE"
+             echo KDD_IMAGE="$KDD_IMAGE" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+             git clone --branch ${{ env.KDD_BRANCH }} --single-branch --depth 1 "https://forgejo.openfifth.co.uk/openfifth/koha-dpkg-docker.git" "${{ env.KDD_HELPER_SCRIPTS }}"
+      - run: |
+             set -x
+             export LOCAL_USER_ID="$(id -u)"
+
+             perl "${{ env.KDD_HELPER_SCRIPTS }}/jenkins_config/build.pl"
+        timeout-minutes: 360
+      - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-debs
+          path: |
+                ${{ env.DEBS_OUT }}/koha-debs-manifest.json
+                ${{ env.DEBS_OUT }}/*.deb
+      - run: |
+             set -x
+             [ -d "${{ env.KDD_HELPER_SCRIPTS }}" ] && rm -rfv "${{ env.KDD_HELPER_SCRIPTS }}"
+             [ -d "${{ env.DEBS_OUT }}" ] && rm -rfv "${{ env.DEBS_OUT }}"
+        if: success() || failure()
+
+  publish-build:
+    name: ${{ inputs.project }} - Publish artifacts from build
+    runs-on:
+      - bare-metal
+      - ${{ inputs.arch }}
+    needs:
+      - create-build
+    if: ${{ !cancelled() && !failure() }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/forgejo/download-artifact@v4
+        with:
+          name: ${{ inputs.project }}-debs
+      - run: |
+             export FORGEJO_REPOSITORY_NAME="$(echo "${{ env.FORGEJO_REPOSITORY }}" | sed 's:.*/::')"
+
+             for FILE in ./*.deb; do
+                 echo -ne "[INFO]\tPublishing $FILE at $FORGEJO_REPOSITORY_OWNER/$FORGEJO_REPOSITORY_NAME with component $FORGEJO_REF_NAME\n"
+
+                 curl -X PUT -f \
+                     --user "git:${{ secrets.PACKAGING_TOKEN }}" \
+                     --upload-file "$FILE" \
+                     "${{ env.FORGEJO_SERVER_URL }}/api/packages/$FORGEJO_REPOSITORY_OWNER/debian/pool/$FORGEJO_REPOSITORY_NAME/$FORGEJO_REF_NAME/upload" >/dev/null
+
+                echo -ne "[INFO]\tDone\n"
+             done

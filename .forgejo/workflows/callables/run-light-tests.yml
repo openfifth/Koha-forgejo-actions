@@ -76,7 +76,7 @@ jobs:
              ISSUE_TITLE="[forgejo-actions] Run ${{ env.FORGEJO_RUN_NUMBER }} on ${{ env.FORGEJO_REF }} – Test summary"
              ISSUE_BODY="$(cat '${{ env.FORGEJO_WORKSPACE }}/test-summary.md' | perl -pe 's/\"/\\"/g' | perl -pe 's/\n/\\n/g')"
 
-             curl -X POST \
+             curl -X POST -f \
                  "${{ env.FORGEJO_API_URL }}/repos/${{ env.FORGEJO_REPOSITORY }}/issues" \
                  -H "accept: application/json" \
                  -H "Authorization: Token ${{ env.FORGEJO_TOKEN }}" \
