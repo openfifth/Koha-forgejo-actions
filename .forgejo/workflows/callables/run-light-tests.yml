@@ -32,15 +32,15 @@ jobs:
              git clone --branch forgejo_actions --single-branch --depth 1 "https://forgejo.openfifth.co.uk/openfifth/jenkins-helper-scripts.git" "$JENKINS_HELPER_SCRIPTS"
       - run: |
              set -x
+             [ -z "$KOHA_IMAGE" ] && KOHA_IMAGE="main"
+             [ -z "$DB_IMAGE" ] && DB_IMAGE="mariadb:10.11"
+
              perl "$JENKINS_HELPER_SCRIPTS/koha_tests_runner.pl" \
                  --initial-docker-cleanup \
                  --run-light-test-suite \
                  --warmup-timeout 550 \
                  --force-cleanup \
                  --verbose
-        env:
-          KOHA_IMAGE: main
-          DB_IMAGE: mariadb:10.11
         timeout-minutes: 360
       - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
         with:
