@@ -50,7 +50,7 @@ jobs:
       - run: |
              set -x
              curl -o "${{ env.HELPER_SCRIPT }}/koha_build_runner.pl" -f \
-                 "https://raw.githubusercontent.com/openfifth/koha-dpkg-docker/refs/heads/${{ env.KDD_BRANCH }}/jenkins_config/koha_build_runner.pl?inline=false"
+                 "https://forgejo.openfifth.co.uk/openfifth/koha-dpkg-docker/raw/branch/unstable/jenkins_config/koha_build_runner.pl?inline=false"
       - run: |
              set -x
 

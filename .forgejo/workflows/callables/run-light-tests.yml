@@ -49,8 +49,9 @@ jobs:
              echo KOHA_IMAGE="$KOHA_IMAGE" >> ${{ env.FORGEJO_ENV }}
       - run: |
              set -x
+             ## todo: forgejo_actions has custom code, mainline it
              curl -o "${{ env.HELPER_SCRIPT }}/koha_tests_runner.pl" -f \
-                 "https://gitlab.com/koha-community/jenkins-helper-scripts/-/raw/${{ env.KTD_BRANCH }}/koha_tests_runner.pl?inline=false"
+                 "https://forgejo.openfifth.co.uk/openfifth/jenkins-helper-scripts/raw/branch/forgejo_actions/koha_tests_runner.pl?inline=false"
       - run: |
              set -x
              [ -z "$DB_IMAGE" ] && DB_IMAGE="mariadb:10.11"
