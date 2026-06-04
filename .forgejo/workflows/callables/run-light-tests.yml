@@ -21,21 +21,41 @@ jobs:
       - uses: https://data.forgejo.org/actions/checkout@v6
       - run: |
              set -x
-             export JENKINS_HELPER_SCRIPTS="$(mktemp -d -p /tmp jenkins-helper-script-XXXXXX)"
-             echo JENKINS_HELPER_SCRIPTS="$JENKINS_HELPER_SCRIPTS" >> ${{ env.FORGEJO_ENV }}
+             export HELPER_SCRIPT="$(mktemp -d -p /tmp helper-script-XXXXXX)"
+             echo HELPER_SCRIPT="$HELPER_SCRIPT" >> ${{ env.FORGEJO_ENV }}
       - run: |
              set -x
              export SYNC_REPO="${{ env.FORGEJO_WORKSPACE }}"
              echo SYNC_REPO="$SYNC_REPO" >> ${{ env.FORGEJO_ENV }}
       - run: |
              set -x
-             git clone --branch forgejo_actions --single-branch --depth 1 "https://forgejo.openfifth.co.uk/openfifth/jenkins-helper-scripts.git" "$JENKINS_HELPER_SCRIPTS"
+             export KOHA_AUTO_VERSION="$(perl -I. -MKoha -le 'print $Koha::VERSION' | cut -b 1-5)"
+
+             # unsupported versions
+             [[ "$KOHA_AUTO_VERSION" == *".06"* ]] && KOHA_AUTO_VERSION="main"
+             [[ "$KOHA_AUTO_VERSION" == *".12"* ]] && KOHA_AUTO_VERSION="main"
+
+             [ -z "$KOHA_VERSION" ] && KOHA_VERSION="$KOHA_AUTO_VERSION"
+             echo KOHA_VERSION="$KOHA_VERSION" >> ${{ env.FORGEJO_ENV }}
       - run: |
              set -x
-             [ -z "$KOHA_IMAGE" ] && KOHA_IMAGE="main"
+             [ -z "$KTD_BRANCH" ] && KTD_BRANCH="${{ env.KOHA_VERSION }}"
+             export KTD_BRANCH="$KTD_BRANCH"
+             echo KTD_BRANCH="$KTD_BRANCH" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+             [ -z "$KOHA_IMAGE" ] && KOHA_IMAGE="${{ env.KOHA_VERSION }}-bookworm"
+             export KOHA_IMAGE="$KOHA_IMAGE"
+             echo KOHA_IMAGE="$KOHA_IMAGE" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+             curl -o "${{ env.HELPER_SCRIPT }}/koha_tests_runner.pl" -f \
+                 "https://gitlab.com/koha-community/jenkins-helper-scripts/-/raw/${{ env.KTD_BRANCH }}/koha_tests_runner.pl?inline=false"
+      - run: |
+             set -x
              [ -z "$DB_IMAGE" ] && DB_IMAGE="mariadb:10.11"
 
-             perl "$JENKINS_HELPER_SCRIPTS/koha_tests_runner.pl" \
+             perl "${{ env.HELPER_SCRIPT }}/koha_tests_runner.pl" \
                  --initial-docker-cleanup \
                  --run-light-test-suite \
                  --warmup-timeout 550 \
@@ -49,9 +69,10 @@ jobs:
                 ${{ env.FORGEJO_WORKSPACE }}/junit_main.xml
                 ${{ env.FORGEJO_WORKSPACE }}/junit-cypress-*.xml
                 ${{ env.FORGEJO_WORKSPACE }}/cover_db/*.xml
+        if: success() || failure()
       - run: |
              set -x
-             [ -d "$JENKINS_HELPER_SCRIPTS" ] && rm -rfv "$JENKINS_HELPER_SCRIPTS"
+             [ -d "$HELPER_SCRIPT" ] && rm -rfv "$HELPER_SCRIPT"
         if: success() || failure()
 
   analyse-light-tests:

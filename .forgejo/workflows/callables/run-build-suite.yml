@@ -21,8 +21,8 @@ jobs:
       - uses: https://data.forgejo.org/actions/checkout@v6
       - run: |
              set -x
-             export KDD_HELPER_SCRIPTS="$(mktemp -d -p /tmp kdd-helper-script-XXXXXX)"
-             echo KDD_HELPER_SCRIPTS="$KDD_HELPER_SCRIPTS" >> ${{ env.FORGEJO_ENV }}
+             export HELPER_SCRIPT="$(mktemp -d -p /tmp helper-script-XXXXXX)"
+             echo HELPER_SCRIPT="$HELPER_SCRIPT" >> ${{ env.FORGEJO_ENV }}
       - run: |
              set -x
              export DEBS_OUT="$(mktemp -d -p /tmp debs-out-XXXXXX)"
@@ -49,22 +49,27 @@ jobs:
              echo KDD_IMAGE="$KDD_IMAGE" >> ${{ env.FORGEJO_ENV }}
       - run: |
              set -x
-             git clone --branch ${{ env.KDD_BRANCH }} --single-branch --depth 1 "https://forgejo.openfifth.co.uk/openfifth/koha-dpkg-docker.git" "${{ env.KDD_HELPER_SCRIPTS }}"
+             curl -o "${{ env.HELPER_SCRIPT }}/koha_build_runner.pl" -f \
+                 "https://raw.githubusercontent.com/openfifth/koha-dpkg-docker/refs/heads/${{ env.KDD_BRANCH }}/jenkins_config/koha_build_runner.pl?inline=false"
       - run: |
              set -x
-             export LOCAL_USER_ID="$(id -u)"
 
-             perl "${{ env.KDD_HELPER_SCRIPTS }}/jenkins_config/build.pl"
-        timeout-minutes: 360
+             perl "${{ env.HELPER_SCRIPT }}/koha_build_runner.pl" \
+                 --initial-docker-cleanup \
+                 --warmup-timeout 550 \
+                 --force-cleanup \
+                 --verbose
+        timeout-minutes: 120
       - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
         with:
           name: ${{ inputs.project }}-debs
           path: |
                 ${{ env.DEBS_OUT }}/koha-debs-manifest.json
                 ${{ env.DEBS_OUT }}/*.deb
+        if: success() || failure()
       - run: |
              set -x
-             [ -d "${{ env.KDD_HELPER_SCRIPTS }}" ] && rm -rfv "${{ env.KDD_HELPER_SCRIPTS }}"
+             [ -d "${{ env.HELPER_SCRIPT }}" ] && rm -rfv "${{ env.HELPER_SCRIPT }}"
              [ -d "${{ env.DEBS_OUT }}" ] && rm -rfv "${{ env.DEBS_OUT }}"
         if: success() || failure()
 
