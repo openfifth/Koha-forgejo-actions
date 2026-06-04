@@ -39,11 +39,6 @@ jobs:
              echo KOHA_VERSION="$KOHA_VERSION" >> ${{ env.FORGEJO_ENV }}
       - run: |
              set -x
-             [ -z "$KTD_BRANCH" ] && KTD_BRANCH="${{ env.KOHA_VERSION }}"
-             export KTD_BRANCH="$KTD_BRANCH"
-             echo KTD_BRANCH="$KTD_BRANCH" >> ${{ env.FORGEJO_ENV }}
-      - run: |
-             set -x
              [ -z "$KOHA_IMAGE" ] && KOHA_IMAGE="${{ env.KOHA_VERSION }}-bookworm"
              export KOHA_IMAGE="$KOHA_IMAGE"
              echo KOHA_IMAGE="$KOHA_IMAGE" >> ${{ env.FORGEJO_ENV }}
