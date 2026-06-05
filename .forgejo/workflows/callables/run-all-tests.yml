@@ -17,6 +17,7 @@ jobs:
     runs-on:
       - bare-metal
       - ${{ inputs.arch }}
+    if: ${{ !cancelled() && (!join(needs.*.result, ',') || contains(join(needs.*.result, ','), 'success')) }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v6
       - run: |
@@ -78,7 +79,7 @@ jobs:
       - ${{ inputs.arch }}
     needs:
       - run-all-tests
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && (needs.run-all-tests.result == 'success' || needs.run-all-tests.result == 'failure') }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v6
       - uses: https://data.forgejo.org/forgejo/download-artifact@v4
