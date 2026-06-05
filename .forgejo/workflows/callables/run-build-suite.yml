@@ -56,7 +56,7 @@ jobs:
 
              perl "${{ env.HELPER_SCRIPT }}/koha_build_runner.pl" \
                  --initial-docker-cleanup \
-                 --warmup-timeout 550 \
+                 --warmup-timeout 1200 \
                  --force-cleanup \
                  --verbose
         timeout-minutes: 120

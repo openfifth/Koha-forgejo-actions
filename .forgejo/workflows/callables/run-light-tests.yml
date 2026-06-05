@@ -54,7 +54,7 @@ jobs:
              perl "${{ env.HELPER_SCRIPT }}/koha_tests_runner.pl" \
                  --initial-docker-cleanup \
                  --run-light-test-suite \
-                 --warmup-timeout 550 \
+                 --warmup-timeout 1200 \
                  --force-cleanup \
                  --verbose
         timeout-minutes: 360
