@@ -80,7 +80,7 @@ jobs:
       - ${{ inputs.arch }}
     needs:
       - create-build
-    if: ${{ !cancelled() && !failure() }}
+    if: ${{ !cancelled() }}
     steps:
       - uses: https://data.forgejo.org/actions/checkout@v6
       - uses: https://data.forgejo.org/forgejo/download-artifact@v4
