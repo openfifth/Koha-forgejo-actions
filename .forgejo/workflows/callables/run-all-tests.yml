@@ -109,4 +109,4 @@ jobs:
           name: ${{ inputs.project }}-full-test-suite-summary
           path: |
                 ${{ env.FORGEJO_WORKSPACE }}/test-summary.md
-          if: success() || failure()
+        if: success() || failure()
