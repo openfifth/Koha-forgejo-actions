@@ -88,6 +88,7 @@ jobs:
         with:
           name: ${{ inputs.project }}-debs
       - run: |
+             set -x
              export FORGEJO_REPOSITORY_NAME="$(echo "${{ env.FORGEJO_REPOSITORY }}" | sed 's:.*/::')"
 
              for FILE in ./*.deb; do

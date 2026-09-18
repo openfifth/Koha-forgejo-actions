@@ -91,6 +91,7 @@ jobs:
           output: ${{ env.FORGEJO_WORKSPACE }}/test-summary.md
           show: fail,skip
       - run: |
+             set -x
              ISSUE_TITLE="[forgejo-actions] Run ${{ env.FORGEJO_RUN_NUMBER }} on ${{ env.FORGEJO_REF }} – Test summary"
              ISSUE_BODY="$(cat '${{ env.FORGEJO_WORKSPACE }}/test-summary.md' | perl -pe 's/\"/\\"/g' | perl -pe 's/\n/\\n/g')"
 
