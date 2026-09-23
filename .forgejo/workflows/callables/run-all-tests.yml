@@ -96,14 +96,14 @@ jobs:
              ISSUE_BODY="$(cat '${{ env.FORGEJO_WORKSPACE }}/test-summary.md' | perl -pe 's/\"/\\"/g' | perl -pe 's/\n/\\n/g')"
 
              curl -X POST -f \
-                 "${{ env.FORGEJO_API_URL }}/repos/${{ env.FORGEJO_REPOSITORY }}/issues" \
-                 -H "accept: application/json" \
-                 -H "Authorization: Token ${{ env.FORGEJO_TOKEN }}" \
+                 "${{ env.FORGEJO_API_URL }}/repos/${{ env.FORGEJO_REPOSITORY_OWNER }}/Koha-packages/issues" \
+                 -H "Accept: application/json" \
+                 -H "Authorization: Token ${{ secrets.PACKAGING_TOKEN }}" \
                  -H "Content-Type: application/json" \
                  -d "{\"title\":\"$ISSUE_TITLE\",\"closed\":true,\"body\":\"$ISSUE_BODY\"}" >/dev/null
 
              echo -ne "[INFO]\tAn issue has been created with a summary of this test suite's status\n"
-             echo -ne "[INFO]\tPlease go to ${{ env.FORGEJO_SERVER_URL }}/${{ env.FORGEJO_REPOSITORY }}/issues\n"
+             echo -ne "[INFO]\tPlease go to ${{ env.FORGEJO_SERVER_URL }}/${{ env.FORGEJO_REPOSITORY_OWNER }}/Koha-packaging/issues\n"
              echo -ne "[INFO]\tThe issues will be titled with this checkout ref and run number, in closed issues\n"
       - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
         with:
