@@ -92,7 +92,7 @@ jobs:
           show: fail,skip
       - run: |
              set -x
-             cat "${{ env.FORGEJO_WORKSPACE }}/test-summary.md" >"${{ env.FORGEJO_STEP_SUMMARY }}"
+             cat "${{ env.FORGEJO_WORKSPACE }}/test-summary.md" >>"${{ env.FORGEJO_STEP_SUMMARY }}"
       - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
         with:
           name: ${{ inputs.project }}-light-test-suite-summary
