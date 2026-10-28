@@ -1,0 +1,103 @@
+---
+name: Fetch the correct Koha-l10n package from upstream
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        default: 'amd64'
+        type: string
+      project:
+        default: 'koha-fetch-l10n-workflow'
+        type: string
+
+jobs:
+  fetch-pkg:
+    name: ${{ inputs.project }} - Run l10n fetch suite
+    runs-on:
+      - bare-metal
+      - ${{ inputs.arch }}
+    if: ${{ !cancelled() && (!join(needs.*.result, ',') || contains(join(needs.*.result, ','), 'success')) }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - run: |
+             set -x
+             export L10N_TMP="$(mktemp -d -p /tmp l10n-tmp-XXXXXX)"
+             echo L10N_TMP="$L10N_TMP" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+             export DEBS_OUT="$(mktemp -d -p /tmp debs-out-XXXXXX)"
+             echo DEBS_OUT="$DEBS_OUT" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+             export KOHA_AUTO_VERSION="$(perl -I. -MKoha -le 'print $Koha::VERSION' | cut -b 1-5)"
+
+             # unsupported versions
+             [[ "$KOHA_AUTO_VERSION" == *".06"* ]] && KOHA_AUTO_VERSION="unstable"
+             [[ "$KOHA_AUTO_VERSION" == *".12"* ]] && KOHA_AUTO_VERSION="unstable"
+
+             [ -z "$KOHA_VERSION" ] && KOHA_VERSION="$KOHA_AUTO_VERSION"
+             echo KOHA_VERSION="$KOHA_VERSION" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+
+             ## fetch the path of the package to download
+             curl -sL https://debian.koha-community.org/koha/dists/${{ env.KOHA_VERSION }}/main/binary-${{ inputs.arch }}/Packages | \
+             awk '
+               /^Package:[[:blank:]]*koha-l10n$/ { found_it=1; next }
+               /^$/ { found_it=0 }
+               found_it && /^Filename:[[:blank:]]*/ {
+                 sub(/^Filename:[[:blank:]]*/, "")
+                 print
+                 exit
+               }
+             ' \
+             >"${{ env.L10N_TMP }}/koha-l10n-pool-path.txt"
+
+             export KOHA_L10N_POOL_PATH="$(cat ${{ env.L10N_TMP }}/koha-l10n-pool-path.txt)"
+             echo KOHA_L10N_POOL_PATH="$KOHA_L10N_POOL_PATH" >> ${{ env.FORGEJO_ENV }}
+      - run: |
+             set -x
+
+             wget -qP"${{ env.DEBS_OUT }}" "https://debian.koha-community.org/koha/${{ env.KOHA_L10N_POOL_PATH }}"
+        timeout-minutes: 120
+      - uses: https://data.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: ${{ inputs.project }}-debs
+          path: |
+                ${{ env.DEBS_OUT }}/*.deb
+        if: success() || failure()
+      - run: |
+             set -x
+             [ -d "${{ env.L10N_TMP }}" ] && rm -rfv "${{ env.L10N_TMP }}"
+             [ -d "${{ env.DEBS_OUT }}" ] && rm -rfv "${{ env.DEBS_OUT }}"
+        if: success() || failure()
+
+  publish-pkg:
+    name: ${{ inputs.project }} - Publish artifacts from l10n fetch
+    runs-on:
+      - bare-metal
+      - ${{ inputs.arch }}
+    needs:
+      - fetch-pkg
+    if: ${{ !cancelled() && (needs.fetch-pkg.result == 'success' || needs.fetch-pkg.result == 'failure') }}
+    steps:
+      - uses: https://data.forgejo.org/actions/checkout@v6
+      - uses: https://data.forgejo.org/forgejo/download-artifact@v4
+        with:
+          name: ${{ inputs.project }}-debs
+      - run: |
+             set -x
+             export FORGEJO_REPOSITORY_NAME="$(echo "${{ env.FORGEJO_REPOSITORY }}" | sed 's:.*/::')"
+             [ "$FORGEJO_REPOSITORY_NAME" = "koha-l10n" ] && export FORGEJO_REPOSITORY_NAME="Koha"
+
+             for FILE in ./*.deb; do
+                 echo -ne "[INFO]\tPublishing $FILE at $FORGEJO_REPOSITORY_OWNER/$FORGEJO_REPOSITORY_NAME with component $FORGEJO_REF_NAME\n"
+
+                 curl -X PUT -f \
+                     --user "git:${{ secrets.PACKAGING_TOKEN }}" \
+                     --upload-file "$FILE" \
+                     "${{ env.FORGEJO_SERVER_URL }}/api/packages/$FORGEJO_REPOSITORY_OWNER/debian/pool/$FORGEJO_REPOSITORY_NAME/$FORGEJO_REF_NAME/upload" >/dev/null
+
+                echo -ne "[INFO]\tDone\n"
+             done
